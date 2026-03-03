@@ -719,7 +719,8 @@ impl Agent {
                         let pending = PendingApproval {
                             request_id: Uuid::new_v4(),
                             tool_name: tc.name.clone(),
-                            parameters: display_params,
+                            parameters: tc.arguments.clone(),
+                            display_parameters: display_params,
                             description: tool.description().to_string(),
                             tool_call_id: tc.id.clone(),
                             context_messages: context_messages.clone(),
@@ -779,9 +780,10 @@ pub(super) async fn execute_chat_tool_standalone(
         .into());
     }
 
+    let safe_params = redact_params(params, tool.sensitive_params());
     tracing::debug!(
         tool = %tool_name,
-        params = %params,
+        params = %safe_params,
         "Tool call started"
     );
 
@@ -1131,6 +1133,7 @@ mod tests {
             request_id: uuid::Uuid::new_v4(),
             tool_name: "shell".to_string(),
             parameters: serde_json::json!({"command": "echo hi"}),
+            display_parameters: serde_json::json!({"command": "echo hi"}),
             description: "Run shell command".to_string(),
             tool_call_id: "call_1".to_string(),
             context_messages: vec![],
