@@ -662,6 +662,7 @@ async fn async_main() -> anyhow::Result<()> {
         .recording_handle
         .as_ref()
         .map(|r| r.http_interceptor());
+    let db_for_shutdown = components.db.clone();
     let deps = AgentDeps {
         store: components.db,
         llm: components.llm,
@@ -712,6 +713,12 @@ async fn async_main() -> anyhow::Result<()> {
         tracing::info!("Stopping {} tunnel...", tunnel.name());
         if let Err(e) = tunnel.stop().await {
             tracing::warn!("Failed to stop tunnel cleanly: {}", e);
+        }
+    }
+
+    if let Some(db) = db_for_shutdown {
+        if let Err(e) = db.shutdown().await {
+            tracing::warn!("Failed to shutdown database cleanly: {}", e);
         }
     }
 
