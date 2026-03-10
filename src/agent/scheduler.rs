@@ -257,6 +257,7 @@ impl Scheduler {
                 let tools = self.tools.clone();
                 let context_manager = self.context_manager.clone();
                 let safety = self.safety.clone();
+                let auto_approve_tools = self.config.auto_approve_tools;
 
                 tokio::spawn(async move {
                     let result = Self::execute_tool_task(
@@ -266,6 +267,7 @@ impl Scheduler {
                         tool_parent_id,
                         &tool_name,
                         params,
+                        auto_approve_tools,
                     )
                     .await;
 
@@ -394,6 +396,7 @@ impl Scheduler {
         job_id: Uuid,
         tool_name: &str,
         params: serde_json::Value,
+        auto_approve_tools: bool,
     ) -> Result<TaskOutput, Error> {
         let start = std::time::Instant::now();
 
@@ -414,7 +417,12 @@ impl Scheduler {
             .into());
         }
 
-        if tool.requires_approval(&params).is_required() {
+        let needs_approval = match tool.requires_approval(&params) {
+            crate::tools::ApprovalRequirement::Never => false,
+            crate::tools::ApprovalRequirement::UnlessAutoApproved => !auto_approve_tools,
+            crate::tools::ApprovalRequirement::Always => true,
+        };
+        if needs_approval {
             return Err(crate::error::ToolError::AuthRequired {
                 name: tool_name.to_string(),
             }
