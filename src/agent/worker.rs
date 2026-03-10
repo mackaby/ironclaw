@@ -37,6 +37,10 @@ pub struct WorkerDeps {
     pub use_planning: bool,
     /// SSE broadcast sender for live job event streaming to the web gateway.
     pub sse_tx: Option<tokio::sync::broadcast::Sender<SseEvent>>,
+    /// When true, `UnlessAutoApproved` tools are not blocked in autonomous jobs.
+    /// Mirrors the dispatcher's `auto_approve_tools` flag. Should be `true` for
+    /// desktop / Climb jobs where there is no human present to grant approval.
+    pub auto_approve_tools: bool,
 }
 
 /// Worker that executes a single job.
@@ -671,8 +675,17 @@ Report when the job is complete or if you encounter issues you cannot resolve."#
                     name: tool_name.to_string(),
                 })?;
 
-        // Tools requiring approval are blocked in autonomous jobs
-        if tool.requires_approval(params).is_required() {
+        // Tools requiring approval are blocked in autonomous jobs unless
+        // auto_approve_tools is enabled. Mirrors the dispatcher's logic:
+        //   Never            → always allowed
+        //   UnlessAutoApproved → blocked only when auto_approve_tools is false
+        //   Always           → always blocked (no bypass even in autonomous mode)
+        let needs_approval = match tool.requires_approval(params) {
+            crate::tools::ApprovalRequirement::Never => false,
+            crate::tools::ApprovalRequirement::UnlessAutoApproved => !deps.auto_approve_tools,
+            crate::tools::ApprovalRequirement::Always => true,
+        };
+        if needs_approval {
             return Err(crate::error::ToolError::AuthRequired {
                 name: tool_name.to_string(),
             }
@@ -1298,6 +1311,7 @@ mod tests {
             timeout: Duration::from_secs(30),
             use_planning: false,
             sse_tx: None,
+            auto_approve_tools: true,
         };
 
         Worker::new(job_id, deps)

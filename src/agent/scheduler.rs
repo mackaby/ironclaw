@@ -181,6 +181,7 @@ impl Scheduler {
                 timeout: self.config.job_timeout,
                 use_planning: self.config.use_planning,
                 sse_tx: self.sse_tx.clone(),
+                auto_approve_tools: self.config.auto_approve_tools,
             };
             let worker = Worker::new(job_id, deps);
 
