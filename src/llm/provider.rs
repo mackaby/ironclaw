@@ -382,6 +382,22 @@ pub fn sanitize_tool_messages(messages: &mut [ChatMessage]) {
     }
 }
 
+/// Returns `true` for models that reject custom `temperature` values.
+///
+/// OpenAI reasoning models (o-series, gpt-5-mini, gpt-5-nano) only accept
+/// the default temperature (1). Sending any other value causes a 400 error.
+pub fn model_rejects_temperature(model: &str) -> bool {
+    let m = model.to_ascii_lowercase();
+    m.starts_with("o1")
+        || m.starts_with("o3")
+        || m.starts_with("o4")
+        || m.starts_with("o5")
+        || m == "gpt-5-mini"
+        || m.starts_with("gpt-5-mini-")
+        || m == "gpt-5-nano"
+        || m.starts_with("gpt-5-nano-")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

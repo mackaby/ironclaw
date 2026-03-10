@@ -25,7 +25,7 @@ use crate::llm::costs;
 use crate::llm::provider::{
     ChatMessage, CompletionRequest, CompletionResponse, FinishReason, LlmProvider,
     ToolCall as IronToolCall, ToolCompletionRequest, ToolCompletionResponse,
-    ToolDefinition as IronToolDefinition,
+    ToolDefinition as IronToolDefinition, model_rejects_temperature,
 };
 
 /// Adapter that wraps a rig-core `CompletionModel` and implements `LlmProvider`.
@@ -420,12 +420,18 @@ where
         crate::llm::provider::sanitize_tool_messages(&mut messages);
         let (preamble, history) = convert_messages(&messages);
 
+        let temperature = if model_rejects_temperature(&self.model_name) {
+            None
+        } else {
+            request.temperature
+        };
+
         let rig_req = build_rig_request(
             preamble,
             history,
             Vec::new(),
             None,
-            request.temperature,
+            temperature,
             request.max_tokens,
         )?;
 
@@ -471,12 +477,18 @@ where
         let tools = convert_tools(&request.tools);
         let tool_choice = convert_tool_choice(request.tool_choice.as_deref());
 
+        let temperature = if model_rejects_temperature(&self.model_name) {
+            None
+        } else {
+            request.temperature
+        };
+
         let rig_req = build_rig_request(
             preamble,
             history,
             tools,
             tool_choice,
-            request.temperature,
+            temperature,
             request.max_tokens,
         )?;
 

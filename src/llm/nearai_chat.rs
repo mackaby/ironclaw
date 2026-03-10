@@ -20,7 +20,7 @@ use crate::config::NearAiConfig;
 use crate::error::LlmError;
 use crate::llm::provider::{
     ChatMessage, CompletionRequest, CompletionResponse, FinishReason, LlmProvider, Role, ToolCall,
-    ToolCompletionRequest, ToolCompletionResponse,
+    ToolCompletionRequest, ToolCompletionResponse, model_rejects_temperature,
 };
 use crate::llm::{costs, session::SessionManager};
 
@@ -424,10 +424,16 @@ impl LlmProvider for NearAiChatProvider {
         let messages: Vec<ChatCompletionMessage> =
             raw_messages.into_iter().map(|m| m.into()).collect();
 
+        let temperature = if model_rejects_temperature(&model) {
+            None
+        } else {
+            req.temperature
+        };
+
         let request = ChatCompletionRequest {
             model,
             messages,
-            temperature: req.temperature,
+            temperature,
             max_tokens: req.max_tokens,
             tools: None,
             tool_choice: None,
@@ -501,10 +507,16 @@ impl LlmProvider for NearAiChatProvider {
             })
             .collect();
 
+        let temperature = if model_rejects_temperature(&model) {
+            None
+        } else {
+            req.temperature
+        };
+
         let request = ChatCompletionRequest {
             model,
             messages,
-            temperature: req.temperature,
+            temperature,
             max_tokens: req.max_tokens,
             tools: if tools.is_empty() { None } else { Some(tools) },
             tool_choice: req.tool_choice,
